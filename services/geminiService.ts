@@ -36,7 +36,7 @@ export const getStoreInsights = async (products: Product[], transactions: Transa
         topP: 0.95
       }
     });
-    return response.text;
+    return response.text; // Direct property access
   } catch (error: any) {
     console.error("Gemini Insights Error:", error);
     if (error.name === "OfflineError") return "OFFLINE_MODE: Intelligence engine disconnected.";
@@ -55,7 +55,7 @@ export const getProfitAnalysis = async (revenue: number, expenses: number, purch
       - Inventory COGS: GH₵${purchases}
       - Best Categories: ${JSON.stringify(categories)}
       
-      Objective: Provide a 3-point briefing to maximize net margin.
+      Objective: Provide a structure briefing to maximize net margin.
     `;
 
     const response = await ai.models.generateContent({
@@ -72,7 +72,7 @@ export const getProfitAnalysis = async (revenue: number, expenses: number, purch
 export const generateInventoryReport = async (products: Product[]) => {
   try {
     const ai = getAIClient();
-    const prompt = `Perform a smart inventory audit. Inventory: ${JSON.stringify(products.map(p => ({ name: p.name, stock: p.stock, price: p.price })))}`;
+    const prompt = `Perform a smart inventory audit for: ${JSON.stringify(products.map(p => ({ name: p.name, stock: p.stock, price: p.price })))}`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -100,7 +100,7 @@ export const generateInventoryReport = async (products: Product[]) => {
 export const suggestDailyTasks = async (products: Product[], transactions: Transaction[]) => {
   try {
     const ai = getAIClient();
-    const prompt = `Generate 3 operational tasks for a shop manager based on this metadata. Sales Today: ${transactions.length}. Items: ${products.length}.`;
+    const prompt = `Generate 3 operational tasks for a shop manager based on this metadata. Sales Today: ${transactions.length}. Items: ${products.length}. Use JSON.`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
