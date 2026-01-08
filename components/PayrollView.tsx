@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Banknote, Plus, Search, FileText, CheckCircle2, 
   Printer, X, Clock, Wallet, TrendingUp, AlertCircle, 
-  ArrowRight, ShieldCheck, UserCircle2, DollarSign,
+  ArrowRight, ShieldCheck, CircleUser, DollarSign,
   Download, CreditCard, Smartphone, CheckCircle, Zap,
   QrCode, MoreHorizontal, ChevronDown, Landmark,
   BarChart3, PieChart, Users, ArrowUpRight, BadgeCheck,
@@ -92,6 +91,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ users, payroll, setPay
         paye,
         status: 'Pending',
         month: selectedMonth,
+        paymentDate: undefined,
         paymentMethod: 'Bank Transfer'
       } as PayrollRecord;
     });

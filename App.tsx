@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Product, Customer, CartItem, Transaction, ShopTask, ViewState, SystemSettings, User, Expense, Purchase, AppReturn, PayrollRecord, UserRole
@@ -27,7 +26,7 @@ import { LoginView } from './components/LoginView';
 import { 
   LayoutDashboard, ShoppingCart, Package, BarChart3, BrainCircuit, 
   ClipboardList, Users as UsersIcon, Warehouse as WarehouseIcon, 
-  Receipt, Truck, Undo2, Scale, UserCircle, Banknote,
+  Receipt, Truck, Undo2, Scale, CircleUser, Banknote,
   Settings, Wand2, LogOut, Menu, X, MoreHorizontal, Wallet, Wifi, WifiOff, AlertCircle,
   Sun, Moon, Zap, Globe
 } from 'lucide-react';
@@ -306,7 +305,7 @@ const App: React.FC = () => {
     { id: 'warehouse', label: 'Warehouse', icon: WarehouseIcon },
     { id: 'expenses', label: 'Expenses', icon: Receipt },
     { id: 'purchases', label: 'Purchases', icon: Truck },
-    { id: 'users', label: 'Staff', icon: UserCircle },
+    { id: 'users', label: 'Staff', icon: CircleUser },
     { id: 'returns', label: 'Returns', icon: Undo2 },
     { id: 'pnl', label: 'P&L', icon: Scale },
     { id: 'image-generator', label: 'Creative', icon: Wand2 },
