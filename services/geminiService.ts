@@ -11,8 +11,8 @@ const getAIClient = () => {
     error.name = "OfflineError";
     throw error;
   }
-  const apiKey = String(process.env.API_KEY || '');
-  return new GoogleGenAI({ apiKey });
+  // Accessing process.env.API_KEY directly as required
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 export const getStoreInsights = async (products: Product[], transactions: Transaction[], query: string) => {

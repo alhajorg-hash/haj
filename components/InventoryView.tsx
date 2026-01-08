@@ -10,7 +10,6 @@ import { Product, UserRole } from '../types';
 import { CATEGORIES } from '../constants';
 import { exportInventoryToExcel } from '../services/exportService';
 import { generateProductImage } from '../services/geminiService';
-import * as XLSX from 'xlsx';
 
 interface InventoryViewProps {
   products: Product[];
@@ -24,13 +23,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [bulkFile, setBulkFile] = useState<File | null>(null);
-  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
-  const [bulkError, setBulkError] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-
-  // Barcode Printing State
-  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
 
   // Editing State
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -41,7 +34,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
   const [bulkUpdateType, setBulkUpdateType] = useState<'stock' | 'category' | null>(null);
   const [bulkUpdateValue, setBulkUpdateValue] = useState<string>('');
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
@@ -57,7 +49,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
 
   const isReadOnly = userRole === 'Cashier';
 
-  // Load product data into form when editing
   useEffect(() => {
     if (editingProduct) {
       setProductForm(editingProduct);
@@ -108,21 +99,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
     }, { cost: 0, retail: 0 });
   }, [products]);
 
-  const filteredTotals = useMemo(() => {
-    return filtered.reduce((acc, p) => {
-      acc.cost += (p.costPrice || 0) * p.stock;
-      acc.retail += p.price * p.stock;
-      acc.stockTotal += p.stock;
-      return acc;
-    }, { cost: 0, retail: 0, stockTotal: 0 });
-  }, [filtered]);
-
   const handleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map(p => p.id)));
-    }
+    if (selectedIds.size === filtered.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map(p => p.id)));
   };
 
   const toggleSelect = (id: string) => {
@@ -184,21 +163,27 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
     setIsProductModalOpen(false);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isReadOnly) return;
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProductForm(prev => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+  const handleAiImageGen = async () => {
+    if (!productForm.name || isGeneratingImage) return;
+    setIsGeneratingImage(true);
+    try {
+      const prompt = `Professional studio photo of ${productForm.name} for a retail catalog, clean lighting, high resolution`;
+      const url = await generateProductImage(prompt);
+      if (url) setProductForm(prev => ({ ...prev, image: url }));
+    } catch (e) {
+      alert("AI generation failed. Please check connection.");
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
-  const triggerUpload = () => {
-    if (isReadOnly) return;
-    uploadInputRef.current?.click();
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setProductForm(prev => ({ ...prev, image: reader.result as string }));
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -210,15 +195,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
         </div>
         {!isReadOnly && (
           <div className="flex flex-wrap gap-2 md:gap-3">
-            <button onClick={() => setIsBulkModalOpen(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"><Upload size={18} /> Bulk Import</button>
+             {selectedIds.size > 0 && (
+              <button onClick={() => setIsBulkUpdateModalOpen(true)} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-4 py-2.5 rounded-xl font-bold text-sm border border-indigo-100 dark:border-indigo-800 shadow-sm animate-in zoom-in"><RefreshCw size={18} /> Bulk Update</button>
+            )}
             <button onClick={handleExport} disabled={isExporting} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"><Download size={18} /> Export</button>
             <button onClick={() => { setEditingProduct(null); setIsProductModalOpen(true); }} className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 px-6 py-2.5 rounded-xl font-bold text-sm text-white hover:bg-indigo-700 shadow-lg transition-all"><Plus size={18} /> Add Product</button>
           </div>
-        )}
-        {isReadOnly && (
-           <div className="bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700">
-              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Session Mode: Read Only</p>
-           </div>
         )}
       </div>
 
@@ -235,19 +217,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
         <StatusPill active={statusFilter === 'Out of Stock'} onClick={() => setStatusFilter('Out of Stock')} label="Out" count={statusCounts.outOfStock} icon={<XCircle size={18} />} color="rose" />
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-3xl md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 transition-colors duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
         <div className="p-4 md:p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
             <input type="text" placeholder="Search products..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-2.5 pl-10 pr-4 text-sm text-slate-950 dark:text-slate-100 font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all" />
           </div>
-          {!isReadOnly && selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
-              <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">{selectedIds.size} Selected</span>
-              <button onClick={handleBulkDelete} className="p-2 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={16} /></button>
-              <button onClick={() => setSelectedIds(new Set())} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"><X size={16} /></button>
-            </div>
-          )}
         </div>
 
         <div className="overflow-x-auto flex-1 custom-scrollbar">
@@ -298,6 +273,44 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
         </div>
       </div>
 
+      {/* Bulk Update Modal */}
+      {isBulkUpdateModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 border border-white/10 animate-bounce-in">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg"><RefreshCw size={20} /></div>
+              <h3 className="font-black text-slate-800 dark:text-white">Bulk Update</h3>
+            </div>
+            <div className="space-y-6">
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Update Field</label>
+                  <select value={bulkUpdateType || ''} onChange={e => setBulkUpdateType(e.target.value as any)} className="form-input-custom">
+                    <option value="">Select Field...</option>
+                    <option value="stock">Stock Level</option>
+                    <option value="category">Category</option>
+                  </select>
+               </div>
+               {bulkUpdateType && (
+                 <div className="space-y-2 animate-in slide-in-from-top-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">New Value</label>
+                   {bulkUpdateType === 'category' ? (
+                     <select value={bulkUpdateValue} onChange={e => setBulkUpdateValue(e.target.value)} className="form-input-custom">
+                        {CATEGORIES.slice(1).map(c => <option key={c} value={c}>{c}</option>)}
+                     </select>
+                   ) : (
+                     <input type="number" value={bulkUpdateValue} onChange={e => setBulkUpdateValue(e.target.value)} className="form-input-custom" placeholder="Enter new stock..." />
+                   )}
+                 </div>
+               )}
+               <div className="flex gap-3">
+                 <button onClick={() => setIsBulkUpdateModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-xs uppercase">Cancel</button>
+                 <button onClick={applyBulkUpdate} disabled={!bulkUpdateValue} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase shadow-xl disabled:opacity-30">Apply to {selectedIds.size}</button>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Product Edit/Add Modal */}
       {isProductModalOpen && !isReadOnly && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
@@ -317,38 +330,33 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
                 <FormGroup label="SKU / Barcode" icon={<Barcode size={14} />}>
                   <input required value={productForm.sku} onChange={e => setProductForm(p => ({...p, sku: e.target.value}))} className="form-input-custom uppercase" placeholder="BEV-001" />
                 </FormGroup>
-                
                 <FormGroup label="Cost Price (GH₵)" icon={<Wallet size={14} />}>
-                  <input required type="number" step="0.01" value={productForm.costPrice} onChange={e => setProductForm(p => ({...p, costPrice: Number(e.target.value)}))} className="form-input-custom" placeholder="Purchase cost" />
+                  <input required type="number" step="0.01" value={productForm.costPrice} onChange={e => setProductForm(p => ({...p, costPrice: Number(e.target.value)}))} className="form-input-custom" />
                 </FormGroup>
                 <FormGroup label="Selling Price (GH₵)" icon={<ShoppingCart size={14} />}>
-                  <input required type="number" step="0.01" value={productForm.price} onChange={e => setProductForm(p => ({...p, price: Number(e.target.value)}))} className="form-input-custom" placeholder="Retail price" />
-                </FormGroup>
-
-                <FormGroup label="Current Stock" icon={<Layers size={14} />}>
-                  <input required type="number" value={productForm.stock} onChange={e => setProductForm(p => ({...p, stock: Number(e.target.value)}))} className="form-input-custom" />
-                </FormGroup>
-                <FormGroup label="Category" icon={<Layers3 size={14} />}>
-                  <select value={productForm.category} onChange={e => setProductForm(p => ({...p, category: e.target.value}))} className="form-input-custom appearance-none">
-                    {CATEGORIES.slice(1).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </FormGroup>
-                <FormGroup label="Brand / Supplier" icon={<Building2 size={14} />}>
-                  <input value={productForm.brand} onChange={e => setProductForm(p => ({...p, brand: e.target.value}))} className="form-input-custom" placeholder="Local Source" />
+                  <input required type="number" step="0.01" value={productForm.price} onChange={e => setProductForm(p => ({...p, price: Number(e.target.value)}))} className="form-input-custom" />
                 </FormGroup>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Camera size={12} /> Product Image</label>
                 <div className="flex gap-2">
-                  <input value={productForm.image} onChange={e => setProductForm(p => ({...p, image: e.target.value}))} className="form-input-custom flex-1" placeholder="Image URL (optional if uploading)" />
-                  <button type="button" onClick={triggerUpload} className="px-5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl font-black text-[10px] uppercase border border-indigo-100 dark:border-indigo-800 flex items-center gap-2"><Upload size={14} /> Upload</button>
-                  <button type="button" onClick={() => {/* AI Call placeholder */}} className="px-4 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl font-black text-[10px] uppercase border border-indigo-100 dark:border-indigo-800"><Wand2 size={16} /></button>
+                  <input value={productForm.image} onChange={e => setProductForm(prev => ({ ...prev, image: e.target.value }))} className="form-input-custom flex-1" placeholder="Image URL..." />
+                  <button type="button" onClick={() => uploadInputRef.current?.click()} className="px-4 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl font-black text-[10px] uppercase border border-indigo-100 dark:border-indigo-800"><Upload size={14} /></button>
+                  <button 
+                    type="button" 
+                    onClick={handleAiImageGen} 
+                    disabled={isGeneratingImage || !productForm.name}
+                    className="px-6 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg shadow-indigo-500/20 disabled:opacity-30 flex items-center gap-2"
+                  >
+                    {isGeneratingImage ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />} 
+                    AI Gen
+                  </button>
                 </div>
                 <input type="file" ref={uploadInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                 {productForm.image && (
-                  <div className="mt-4 w-24 h-24 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm">
-                    <img src={productForm.image} className="w-full h-full object-cover" alt="Preview" />
-                  </div>
+                   <div className="mt-4 w-32 h-32 rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-md animate-in fade-in">
+                      <img src={productForm.image} className="w-full h-full object-cover" alt="Preview" />
+                   </div>
                 )}
               </div>
               <div className="flex gap-4 pt-4">
@@ -360,7 +368,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
         </div>
       )}
 
-      {/* Global CSS for form inputs in this view */}
       <style>{`
         .form-input-custom {
           width: 100%;
@@ -380,9 +387,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ products, setProdu
           color: #ffffff;
         }
         .form-input-custom:focus {
-          ring: 2px;
-          ring-color: rgba(99, 102, 241, 0.1);
           border-color: #6366f1;
+          background: #fff;
+        }
+        .dark .form-input-custom:focus {
+          background: #0f172a;
         }
       `}</style>
     </div>
