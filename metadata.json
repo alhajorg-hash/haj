@@ -1,0 +1,7 @@
+{
+  "name": "Copy of GeminiPOS Pro",
+  "description": "A high-performance Point of Sale (POS) system with AI-driven inventory insights, real-time analytics, and seamless checkout experience.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
